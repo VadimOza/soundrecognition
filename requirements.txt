@@ -1,0 +1,16 @@
+numpy
+pandas
+IPython.display
+ath
+sklearn
+sklearn.preprocessing
+sklearn.metrics
+sklearn.metrics
+soundfile
+keras
+glob
+scipy
+scipy.signal
+scipy.io
+seaborn
+matplotlib.pyplot
