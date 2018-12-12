@@ -1,6 +1,5 @@
-import pyaudio
 import numpy as np
-from matplotlib import pyplot as plt
+import pyaudio
 
 CHUNKSIZE = 1024 # fixed chunk size
 

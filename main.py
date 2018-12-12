@@ -1,8 +1,9 @@
-import scipy.io.wavfile
+import librosa
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.io.wavfile
+
 import recorder
-import librosa
 
 plt.figure(1)
 plt.subplot(211)
