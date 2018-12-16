@@ -11,11 +11,11 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import LabelEncoder
 
-train_folder = "../input/train/Train"
-train_df = pd.read_csv('../input/train/train.csv')
+train_folder = "./input/train/Train"
+train_df = pd.read_csv('./input/train/train.csv')
 train_df['file'] = train_df['ID'].apply(lambda x: train_folder + '/' + str(x) + '.wav')
-test_folder = "../input/test/Test"
-test_df = pd.read_csv('../input/test/test.csv')
+test_folder = "./input/test/Test"
+test_df = pd.read_csv('./input/test/test.csv')
 test_df['file'] = test_df['ID'].apply(lambda x: test_folder + '/' + str(x) + '.wav')
 
 labelEncoder = LabelEncoder()

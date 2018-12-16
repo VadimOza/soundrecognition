@@ -10,6 +10,9 @@
 .idea/**/dictionaries
 .idea/**/shelf
 .idea/**
+input/
+submission.csv
+
 
 # Sensitive or high-churn files
 .idea/**/dataSources/

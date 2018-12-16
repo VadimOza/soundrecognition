@@ -1,0 +1,138 @@
+import math
+
+import keras
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import soundfile as sf
+from scipy.signal import decimate
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import LabelEncoder
+
+import com.vadim.cursach.constants as const
+from com.vadim.cursach.store import store
+
+train_folder = "../../../input/train/Train"
+train_df = pd.read_csv('../../../input/train/train.csv')
+train_df['file'] = train_df['ID'].apply(lambda x: train_folder + '/' + str(x) + '.wav')
+test_folder = "../../../input/test/Test"
+test_df = pd.read_csv('../../../input/test/test.csv')
+test_df['file'] = test_df['ID'].apply(lambda x: test_folder + '/' + str(x) + '.wav')
+
+labelEncoder = LabelEncoder()
+train_df['Class_id'] = labelEncoder.fit_transform(train_df['Class'])
+train_df['Class'].describe()
+
+samples_channels = [sf.read(f, dtype='float32')[0].shape for f in test_df['file']]
+framerates = [sf.read(f, dtype='float32')[1] for f in test_df['file']]
+channels = [1 if len(x) == 1 else x[1] for x in samples_channels]
+samples = [x[0] for x in samples_channels]
+lengths = np.array(samples) / np.array(framerates)
+
+pd.DataFrame({'framerate': framerates, 'channel': channels, 'sample': samples, 'length': lengths}).describe()
+
+
+def proc_sound(data, rate):
+    data = decimate(data, rate // const.RATE, axis=0)
+    if 2 == len(data.shape):
+        data = np.sum(data, axis=1)
+    pad = const.SAMPLES - len(data)
+    if pad > 0:
+        data = np.pad(data, ((0, pad)), mode='wrap')
+    else:
+        data = data[:const.SAMPLES]
+    return data.reshape((-1, 1))
+
+
+def fit_generator(files, labels, augments, batch_size):
+    while True:
+        for i in range(0, len(files), batch_size):
+            signals = []
+            _labels = []
+            for j in range(i, min(len(files), i + batch_size)):
+                file = files[j]
+                label = labels[j]
+                data, rate = sf.read(file, dtype='float32')
+                data = proc_sound(data, rate)
+                for _ in range(augments + 1):
+                    signals.append(np.roll(data, np.random.randint(0, const.SAMPLES)))
+                    _labels.append(label)
+            yield np.array(signals), np.array(_labels)
+
+
+def test_generator(files, labels, batch_size):
+    while True:
+        signals = []
+        _labels = []
+        for i in range(0, batch_size):
+            j = np.random.randint(0, len(files))
+            file = files[j]
+            label = labels[j]
+            data, rate = sf.read(file, dtype='float32')
+            data = proc_sound(data, rate)
+            signals.append(np.roll(data, np.random.randint(0, const.SAMPLES)))
+            _labels.append(label)
+        yield np.array(signals), np.array(_labels)
+
+
+def predict_generator(files, batch_size):
+    while True:
+        for i in range(0, len(files), batch_size):
+            signals = []
+            for j in range(i, min(len(files), i + batch_size)):
+                file = files[j]
+                data, rate = sf.read(file, dtype='float32')
+                data = proc_sound(data, rate)
+                signals.append(data)
+            yield np.array(signals)
+
+
+def steps_per_epoch(total, batch):
+    return math.ceil(total / batch)
+
+
+model = keras.models.Sequential()
+model.add(keras.layers.InputLayer((const.SAMPLES, const.CHANNELS)))
+for n, k, s in ((30, 25, 5), (50, 19, 5), (100, 19, 5), (100, 19, 4), (100, 19, 4), (100, 15, 4), (100, 7, 4)):
+    model.add(keras.layers.Conv1D(n, kernel_size=k, strides=s, padding='same'))
+    model.add(keras.layers.LeakyReLU())
+    model.add(keras.layers.BatchNormalization())
+model.add(keras.layers.Flatten())
+model.add(keras.layers.Dense(const.N_CLASSES, activation='softmax'))
+
+model.summary()
+
+batch_size = 100
+epochs = 25
+augments = 1
+
+model.compile(loss='sparse_categorical_crossentropy',
+              optimizer=keras.optimizers.Adam(0.01),
+              metrics=['accuracy'])
+model.fit_generator(fit_generator(train_df['file'], train_df['Class_id'], augments, batch_size),
+                    epochs=epochs,
+                    steps_per_epoch=steps_per_epoch(len(train_df), batch_size),
+                    verbose=2)
+
+predicted_probs = model.predict_generator(predict_generator(train_df['file'], batch_size),
+                                          steps=steps_per_epoch(len(train_df), batch_size))
+predicted = np.argmax(predicted_probs, axis=1)
+print(classification_report(train_df['Class_id'], predicted))
+sns.heatmap(confusion_matrix(train_df['Class_id'], predicted))
+plt.show()
+
+store(model)
+
+# predict_probs = model.predict_generator(predict_generator(test_df['file'], batch_size),
+#                                         steps=steps_per_epoch(len(test_df), batch_size))
+# predicts = np.argmax(predict_probs, axis=1)
+# out_df = test_df[['ID']]
+# out_df['Class'] = labelEncoder.inverse_transform(predicts)
+# out_df.to_csv('submission.csv')
+#
+# out_df.head(10)
+#
+# for data in next(predict_generator(test_df['file'], 10)):
+#     ipd.display(ipd.Audio(data.flatten(), rate=RATE))
