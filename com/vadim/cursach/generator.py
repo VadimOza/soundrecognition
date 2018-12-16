@@ -10,6 +10,13 @@ def steps_per_epoch(total, batch):
     return math.ceil(total / batch)
 
 
+def predict_audio_generator(data, rate):
+    signals = []
+    data = proc_sound(data, rate)
+    signals.append(data)
+    yield np.array(signals)
+
+
 def predict_generator(files, batch_size):
     while True:
         for i in range(0, len(files), batch_size):
